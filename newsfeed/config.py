@@ -21,12 +21,12 @@ CATEGORIES = [
                 "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
             },
             {
-                "name": "Al Jazeera",
-                "url": "https://www.aljazeera.com/xml/rss/all.xml",
+                "name": "Reuters",
+                "url": "https://news.google.com/rss/search?q=site%3Areuters.com&hl=en-US&gl=US&ceid=US%3Aen",
             },
             {
-                "name": "Reuters",
-                "url": "https://feeds.reuters.com/reuters/worldNews",
+                "name": "Al Jazeera",
+                "url": "https://www.aljazeera.com/xml/rss/all.xml",
             },
         ],
     },
@@ -40,19 +40,66 @@ CATEGORIES = [
                 "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
             },
             {
-                "name": "MarketWatch",
-                "url": "http://feeds.marketwatch.com/marketwatch/topstories/",
+                "name": "The Economist",
+                "url": "https://www.economist.com/finance-and-economics/rss.xml",
             },
             {
-                "name": "Yahoo Finance",
-                "url": "https://finance.yahoo.com/news/rssindex",
+                "name": "Bloomberg Markets",
+                "url": "https://feeds.bloomberg.com/markets/news.rss",
+            },
+            {
+                "name": "Bloomberg Wealth",
+                "url": "https://feeds.bloomberg.com/wealth/news.rss",
+            },
+            {
+                "name": "Bloomberg Economics",
+                "url": "https://feeds.bloomberg.com/economics/news.rss",
+            }
+        ],
+    },
+    {
+        "name": "Technology",
+        "short": "Tech",
+        "key": "3",
+        "feeds": [
+            {
+                "name": "Bloomberg Technology",
+                "url": "https://feeds.bloomberg.com/technology/news.rss",
+            },
+            {
+                "name": "Towards Data Science",
+                "url": "https://towardsdatascience.com/feed",
+            },
+            {
+                "name": "Google Research",
+                "url": "http://googleresearch.blogspot.com/atom.xml",
             },
         ],
     },
     {
+        "name": "Math / Stats / AI",
+        "short": "AI Research",
+        "key": "4",
+        "feeds": [
+            {
+                "name": "arXiv: ML",
+                "url": "https://arxiv.org/rss/cs.LG",
+            },
+            {
+                "name": "arXiv: AI",
+                "url": "https://arxiv.org/rss/cs.AI",
+            },
+            {
+                "name": "arXiv: Statistics",
+                "url": "https://arxiv.org/rss/stat.ML",
+            },
+        ],
+        "daily_concept": False,
+    },
+    {
         "name": "Astrophysics",
         "short": "Astro",
-        "key": "3",
+        "key": "5",
         "feeds": [
             {
                 "name": "arXiv: Galaxies",
@@ -71,60 +118,53 @@ CATEGORIES = [
     {
         "name": "Counter-Strike 2",
         "short": "CS2",
-        "key": "4",
+        "key": "6",
         "feeds": [
             {
                 "name": "HLTV",
                 "url": "https://www.hltv.org/rss/news",
+                "max_items": 50,
             },
             {
-                "name": "r/GlobalOffensive",
-                "url": "https://www.reddit.com/r/GlobalOffensive/.rss?limit=20",
-            },
-            {
-                "name": "r/cs2",
-                "url": "https://www.reddit.com/r/cs2/.rss?limit=20",
-            },
+                "name": "CS2 - Community Feed",
+                "url": "https://raw.githubusercontent.com/IceQ1337/CS-RSS-Feed/master/feeds/news-feed-en.xml",
+            }
         ],
     },
     {
-        "name": "Software Dev",
-        "short": "Dev",
-        "key": "5",
+        "name": "Science/Tech",
+        "short": "Science",
+        "key": "7",
         "feeds": [
+            {
+                "name": "Nature",
+                "url": "http://www.nature.com/nature/current_issue/rss",
+            },
+            {
+                "name": "The Verge",
+                "url": "https://www.theverge.com/rss/index.xml",
+            },
             {
                 "name": "Hacker News",
                 "url": "https://news.ycombinator.com/rss",
             },
             {
-                "name": "GitHub Blog",
-                "url": "https://github.blog/feed/",
+                "name": "Singularity Hub",
+                "url": "https://singularityhub.com/feed/",
             },
             {
-                "name": "Lobsters",
-                "url": "https://lobste.rs/rss",
-            },
+                "name": "Wired",
+                "url": "https://www.wired.com/feed/category/security/latest/rss",
+            }
+
         ],
     },
     {
-        "name": "Math / Stats / AI",
-        "short": "Math/AI",
-        "key": "6",
-        "feeds": [
-            {
-                "name": "arXiv: ML",
-                "url": "https://arxiv.org/rss/cs.LG",
-            },
-            {
-                "name": "arXiv: Statistics",
-                "url": "https://arxiv.org/rss/stat.ML",
-            },
-            {
-                "name": "arXiv: AI",
-                "url": "https://arxiv.org/rss/cs.AI",
-            },
-        ],
-        "daily_concept": True,
+        "name": "Daily Facts",
+        "short": "Facts",
+        "key": "8",
+        "feeds": [],
+        "concepts_tab": True,
     },
 ]
 

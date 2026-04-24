@@ -7,7 +7,7 @@ from datetime import datetime
 from textwrap import wrap
 
 from .config import CATEGORIES
-from .concepts import get_daily_concept
+from .concepts import get_daily_concept, get_daily_concepts_panel
 from .fetcher import fetch_category, clear_cache
 
 # ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ _C_HEADER = 1       # App title bar
 _C_ACTIVE_TAB = 2   # Selected category tab
 _C_INACTIVE_TAB = 3 # Unselected tab
 _C_SELECTED = 4     # Highlighted article row
-_C_SOURCE = 5       # Source name in article list
+_C_SOURCE = 5       # Source name in article list (fallback)
 _C_DATE = 6         # Date in article list
 _C_CONCEPT_HDR = 7  # Daily Concept section header
 _C_URL = 8          # URL in detail pane
@@ -25,6 +25,40 @@ _C_SEPARATOR = 9    # Separator lines
 _C_FOOTER = 10      # Footer bar
 _C_LOADING = 11     # Loading / status message
 _C_ERROR = 12       # Error text
+
+# Source-specific colour pairs start at this index.
+# We reserve _C_SRC_BASE … _C_SRC_BASE+_SRC_PALETTE_SIZE-1.
+_C_SRC_BASE = 20
+_SRC_PALETTE = [
+    curses.COLOR_CYAN,
+    curses.COLOR_GREEN,
+    curses.COLOR_MAGENTA,
+    curses.COLOR_YELLOW,
+    curses.COLOR_RED,
+    curses.COLOR_BLUE,
+    curses.COLOR_WHITE,
+]
+_SRC_PALETTE_SIZE = len(_SRC_PALETTE)
+
+# Map source name → assigned pair index (populated at draw time)
+_source_pair_map: dict = {}
+_src_pair_counter = [_C_SRC_BASE]   # mutable counter via list
+
+
+def _source_color_pair(source: str, bg: int) -> int:
+    """Return a stable curses color_pair number for *source*.
+
+    Each unique source name gets one of the palette colours.  The mapping is
+    deterministic within a session (first-seen order) and wraps around if
+    there are more sources than palette entries.
+    """
+    if source not in _source_pair_map:
+        pair_idx = _src_pair_counter[0]
+        palette_fg = _SRC_PALETTE[(pair_idx - _C_SRC_BASE) % _SRC_PALETTE_SIZE]
+        curses.init_pair(pair_idx, palette_fg, bg)
+        _source_pair_map[source] = pair_idx
+        _src_pair_counter[0] += 1
+    return _source_pair_map[source]
 
 
 def _safe_addstr(win, y: int, x: int, text: str, attr: int = 0) -> None:
@@ -68,9 +102,9 @@ class NewsFeedApp:
         self.status: str = ""           # transient status message
 
         # Per-category article cache: index → list[dict]
-        self._articles: dict[int, list] = {}
+        self._articles: dict = {}
         # Per-category loading flag
-        self._loading: dict[int, bool] = {i: False for i in range(len(CATEGORIES))}
+        self._loading: dict = {i: False for i in range(len(CATEGORIES))}
 
         self.daily_concept = get_daily_concept()
 
@@ -83,20 +117,28 @@ class NewsFeedApp:
 
     def _init_colors(self) -> None:
         curses.start_color()
-        curses.use_default_colors()
-        # Pairs: (fg, bg) — bg=-1 means terminal default
+        # use_default_colors() enables transparent background (bg=-1).
+        # Not all terminals/builds support it, so fall back to black.
+        try:
+            curses.use_default_colors()
+            _bg = -1
+        except curses.error:
+            _bg = curses.COLOR_BLACK
+        # Pairs: (fg, bg)
         curses.init_pair(_C_HEADER,       curses.COLOR_BLACK,   curses.COLOR_CYAN)
         curses.init_pair(_C_ACTIVE_TAB,   curses.COLOR_BLACK,   curses.COLOR_YELLOW)
-        curses.init_pair(_C_INACTIVE_TAB, curses.COLOR_CYAN,    -1)
+        curses.init_pair(_C_INACTIVE_TAB, curses.COLOR_CYAN,    _bg)
         curses.init_pair(_C_SELECTED,     curses.COLOR_BLACK,   curses.COLOR_GREEN)
-        curses.init_pair(_C_SOURCE,       curses.COLOR_CYAN,    -1)
-        curses.init_pair(_C_DATE,         curses.COLOR_YELLOW,  -1)
-        curses.init_pair(_C_CONCEPT_HDR,  curses.COLOR_MAGENTA, -1)
-        curses.init_pair(_C_URL,          curses.COLOR_BLUE,    -1)
-        curses.init_pair(_C_SEPARATOR,    curses.COLOR_WHITE,   -1)
+        curses.init_pair(_C_SOURCE,       curses.COLOR_CYAN,    _bg)
+        curses.init_pair(_C_DATE,         curses.COLOR_YELLOW,  _bg)
+        curses.init_pair(_C_CONCEPT_HDR,  curses.COLOR_MAGENTA, _bg)
+        curses.init_pair(_C_URL,          curses.COLOR_BLUE,    _bg)
+        curses.init_pair(_C_SEPARATOR,    curses.COLOR_WHITE,   _bg)
         curses.init_pair(_C_FOOTER,       curses.COLOR_BLACK,   curses.COLOR_WHITE)
-        curses.init_pair(_C_LOADING,      curses.COLOR_YELLOW,  -1)
-        curses.init_pair(_C_ERROR,        curses.COLOR_RED,     -1)
+        curses.init_pair(_C_LOADING,      curses.COLOR_YELLOW,  _bg)
+        curses.init_pair(_C_ERROR,        curses.COLOR_RED,     _bg)
+        # Store bg so _source_color_pair can use it at draw time
+        self._bg = _bg
 
     # ------------------------------------------------------------------
     # Background article loading
@@ -111,6 +153,25 @@ class NewsFeedApp:
         cat = CATEGORIES[idx]
 
         def _worker() -> None:
+            # Concepts-only tab: show one fact per discipline, no RSS feeds
+            if cat.get("concepts_tab"):
+                today = datetime.today().strftime("%b %d")
+                items = [
+                    {
+                        "title": f"★ {c['category']}: {c['title']}",
+                        "source": c["category"],
+                        "date": today,
+                        "summary": f"{c['equation']}\n\n{c['overview']}",
+                        "url": "",
+                        "is_concept": True,
+                    }
+                    for c in get_daily_concepts_panel()
+                ]
+                self._articles[idx] = items
+                self._loading[idx] = False
+                self._set_status(f"Loaded {len(items)} daily facts")
+                return
+
             items = fetch_category(cat["feeds"], status_callback=self._set_status)
 
             # Prepend Daily Concept as a special article for the Math/AI category
@@ -292,12 +353,16 @@ class NewsFeedApp:
                     sel_attr
                 )
             else:
+                src_name = art.get("source", "")
+                src_pair = curses.color_pair(
+                    _source_color_pair(src_name, self._bg)
+                )
                 _safe_addstr(self.stdscr, screen_row, 0, "   ", 0)
                 _safe_addstr(self.stdscr, screen_row, 3, title.ljust(title_width), base_attr)
                 _safe_addstr(
                     self.stdscr, screen_row, 3 + title_width,
                     f"  {src[:src_col]}",
-                    curses.color_pair(_C_SOURCE)
+                    src_pair
                 )
                 _safe_addstr(
                     self.stdscr, screen_row, 3 + title_width + 2 + src_col,
@@ -334,9 +399,11 @@ class NewsFeedApp:
             row += 1
 
         # Source / date line
-        meta = f"{art.get('source', '')}  ·  {art.get('date', '')}"
+        src_name = art.get('source', '')
+        meta = f"{src_name}  ·  {art.get('date', '')}"
         if row < end_row:
-            _safe_addstr(self.stdscr, row, 1, meta, curses.color_pair(_C_SOURCE))
+            src_pair = curses.color_pair(_source_color_pair(src_name, self._bg))
+            _safe_addstr(self.stdscr, row, 1, meta, src_pair)
             row += 1
 
         if row < end_row:
@@ -443,7 +510,8 @@ class NewsFeedApp:
         elif key in (curses.KEY_LEFT, curses.KEY_BTAB):
             self._switch_category((self.cat_idx - 1) % len(CATEGORIES))
         elif key in (ord("1"), ord("2"), ord("3"),
-                     ord("4"), ord("5"), ord("6")):
+                     ord("4"), ord("5"), ord("6"),
+                     ord("7"), ord("8")):
             self._switch_category(key - ord("1"))
 
         # ── Article navigation ─────────────────────────────────────────
@@ -530,3 +598,15 @@ def launch() -> None:
         curses.wrapper(_main)
     except KeyboardInterrupt:
         pass
+    except curses.error as exc:
+        if "Redirection is not supported" in str(exc):
+            import sys
+            print(
+                "\n[NewsFeed] curses error: cannot open a proper console window.\n"
+                "  • In Git Bash / mintty, prefix the command with winpty:\n"
+                "      winpty python -m newsfeed\n"
+                "  • Or run in Windows Terminal, PowerShell, or cmd.exe instead.\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        raise

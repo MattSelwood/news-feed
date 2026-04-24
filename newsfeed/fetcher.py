@@ -21,6 +21,16 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
 
 
+_ARXIV_PREAMBLE_RE = re.compile(
+    r"^arXiv:\S+\s+Announce\s+Type:\s+\S+\s+Abstract:\s*", re.IGNORECASE
+)
+
+
+def _clean_summary(text: str) -> str:
+    """Remove arXiv announce preamble and return the cleaned summary."""
+    return _ARXIV_PREAMBLE_RE.sub("", text).strip()
+
+
 def _strip_html(text: str) -> str:
     """Remove HTML tags and normalise whitespace."""
     if not text:
@@ -95,23 +105,31 @@ def fetch_feed(feed: dict) -> list:
 
     try:
         parsed = feedparser.parse(url)
+        limit = feed.get("max_items", MAX_ITEMS_PER_FEED)
         items = []
-        for entry in parsed.entries[:MAX_ITEMS_PER_FEED]:
-            summary = _strip_html(
+        for entry in parsed.entries[:limit]:
+            summary = _clean_summary(_strip_html(
                 entry.get("summary", "") or entry.get("description", "")
-            )
+            ))
             date_str = (
                 entry.get("published", "")
                 or entry.get("updated", "")
                 or ""
             )
+            # Use the pre-parsed time struct when available for reliable sorting
+            parsed_time = (
+                entry.get("published_parsed")
+                or entry.get("updated_parsed")
+            )
+            pub_timestamp = time.mktime(parsed_time) if parsed_time else 0.0
             items.append(
                 {
                     "title": _strip_html(entry.get("title", "No title")),
                     "url": entry.get("link", ""),
-                    "summary": summary[:500],
+                    "summary": summary,
                     "source": name,
                     "date": date_str[:32],
+                    "pub_timestamp": pub_timestamp,
                     "is_concept": False,
                 }
             )
@@ -136,5 +154,8 @@ def fetch_category(feeds: list, status_callback=None) -> list:
             if url:
                 seen_urls.add(url)
             all_items.append(item)
+
+    # Sort newest-first; items with no timestamp (0.0) sink to the bottom
+    all_items.sort(key=lambda x: x.get("pub_timestamp", 0.0), reverse=True)
 
     return all_items

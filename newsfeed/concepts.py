@@ -1111,3 +1111,351 @@ def get_daily_concept() -> dict:
     """Return the concept for today, cycling through the list by day of year."""
     day = date.today().timetuple().tm_yday
     return CONCEPTS[day % len(CONCEPTS)]
+
+
+# ---------------------------------------------------------------------------
+# Discipline-specific concept banks for the Daily Facts tab
+# ---------------------------------------------------------------------------
+
+CONCEPTS_AI = [
+    {
+        "title": "Transformer Self-Attention",
+        "category": "AI",
+        "equation": "Attention(Q,K,V) = softmax(Q K^T / sqrt(d_k)) V",
+        "overview": (
+            "The self-attention mechanism is the core building block of Transformer models "
+            "(GPT, BERT, etc.).  Each token attends to every other token in the sequence.\n\n"
+            "  • Q (queries), K (keys), V (values) are linear projections of the input\n"
+            "  • Scaling by sqrt(d_k) prevents softmax saturation in high dimensions\n"
+            "  • Multi-head attention runs h parallel attention heads, then concatenates\n\n"
+            "Why it matters: unlike RNNs, attention is fully parallelisable and captures "
+            "long-range dependencies without vanishing gradients.  It is the reason "
+            "large language models scale so effectively."
+        ),
+    },
+    {
+        "title": "Reinforcement Learning: Bellman Equation",
+        "category": "AI",
+        "equation": "V*(s) = max_a [ R(s,a) + gamma * sum_{s'} P(s'|s,a) V*(s') ]",
+        "overview": (
+            "The Bellman optimality equation defines the value of a state under an optimal "
+            "policy: the immediate reward plus discounted future value, maximised over actions.\n\n"
+            "  • gamma (0-1): discount factor — how much future rewards are weighted\n"
+            "  • P(s'|s,a): transition probability of reaching state s' from s via action a\n"
+            "  • V*(s): optimal state-value function\n\n"
+            "Q-learning, DQN, and actor-critic methods all derive from this equation.  "
+            "Deep RL (AlphaGo, OpenAI Five) approximates V* or Q* with neural networks."
+        ),
+    },
+    {
+        "title": "Convolutional Neural Networks",
+        "category": "AI",
+        "equation": "(I * K)[i,j] = sum_m sum_n  I[i+m, j+n] * K[m,n]",
+        "overview": (
+            "CNNs apply learned filters (kernels K) via discrete convolution to detect "
+            "local spatial patterns — edges, textures, shapes — in a translationally "
+            "invariant way.\n\n"
+            "Key ideas:\n"
+            "  • Parameter sharing: the same kernel is applied at every spatial location\n"
+            "  • Pooling layers downsample to build spatial hierarchy\n"
+            "  • Deep stacking learns increasingly abstract features\n\n"
+            "CNNs revolutionised computer vision (AlexNet 2012) and are now used in "
+            "medical imaging, autonomous vehicles, and satellite analysis."
+        ),
+    },
+    {
+        "title": "Generative Adversarial Networks (GANs)",
+        "category": "AI",
+        "equation": "min_G max_D  E[log D(x)] + E[log(1 - D(G(z)))]",
+        "overview": (
+            "A GAN trains two networks adversarially:\n"
+            "  • Generator G: maps random noise z to fake data G(z)\n"
+            "  • Discriminator D: tries to distinguish real data x from G(z)\n\n"
+            "At Nash equilibrium, G produces samples indistinguishable from real data "
+            "and D outputs 0.5 everywhere.\n\n"
+            "Applications: photorealistic image synthesis (StyleGAN), data augmentation, "
+            "image-to-image translation (pix2pix), video generation.\n\n"
+            "Training challenges: mode collapse, vanishing gradients → addressed by "
+            "Wasserstein GAN and spectral normalisation."
+        ),
+    },
+    {
+        "title": "The Perceptron",
+        "category": "AI",
+        "equation": "y = sign( w^T x + b )",
+        "overview": (
+            "The perceptron (Rosenblatt, 1958) is the earliest trainable neural unit.  "
+            "It computes a weighted sum of inputs, adds a bias, and applies a step function.\n\n"
+            "Learning rule: w <- w + alpha * (y_true - y_pred) * x\n\n"
+            "Limitations: can only classify linearly separable data (XOR problem, proven "
+            "by Minsky & Papert 1969 — causing the first 'AI winter').\n\n"
+            "Multi-layer perceptrons (MLPs) with non-linear activations overcome this, "
+            "and every modern deep learning model is a descendant of this idea."
+        ),
+    },
+]
+
+CONCEPTS_STATS = [
+    {
+        "title": "Bootstrap Resampling",
+        "category": "Statistics",
+        "equation": "SE_boot = std( { statistic(X*_b) : b = 1..B } )",
+        "overview": (
+            "The bootstrap estimates the sampling distribution of a statistic by "
+            "repeatedly resampling (with replacement) from the observed data.\n\n"
+            "Algorithm:\n"
+            "  1. Draw B bootstrap samples X*_1, ..., X*_B of size n from the data\n"
+            "  2. Compute the statistic (mean, median, correlation, etc.) on each sample\n"
+            "  3. The spread of those B values estimates the standard error\n\n"
+            "Why it matters: works for almost any statistic without needing closed-form "
+            "variance formulas.  95% confidence intervals can be read directly from the "
+            "2.5th and 97.5th percentiles of the bootstrap distribution."
+        ),
+    },
+    {
+        "title": "p-values and Hypothesis Testing",
+        "category": "Statistics",
+        "equation": "p = P( |T| >= |t_obs|  |  H_0 true )",
+        "overview": (
+            "A p-value is the probability of observing a test statistic at least as "
+            "extreme as the observed value, assuming the null hypothesis H_0 is true.\n\n"
+            "Common misinterpretations:\n"
+            "  • p is NOT the probability that H_0 is true\n"
+            "  • p < 0.05 is an arbitrary threshold, not a law of nature\n"
+            "  • Statistical significance ≠ practical significance\n\n"
+            "Better alternatives: report effect sizes, confidence intervals, and use "
+            "Bayesian methods (Bayes factors) to quantify evidence for/against H_0."
+        ),
+    },
+    {
+        "title": "Markov Chain Monte Carlo (MCMC)",
+        "category": "Statistics",
+        "equation": "pi(x) prop  L(data|x) * p(x)   sampled via Metropolis-Hastings",
+        "overview": (
+            "MCMC methods draw samples from a target distribution pi(x) (e.g. a Bayesian "
+            "posterior) that is known only up to a normalising constant.\n\n"
+            "Metropolis-Hastings:\n"
+            "  1. Propose x' from a proposal distribution q(x'|x)\n"
+            "  2. Accept with probability min(1, pi(x')/pi(x) * q(x|x')/q(x'|x))\n"
+            "  3. Repeat — the chain's stationary distribution is pi\n\n"
+            "Used throughout Bayesian statistics, physics (lattice QCD), and ML "
+            "(contrastive divergence in RBMs).  Modern variants: HMC, NUTS (used in Stan/PyMC)."
+        ),
+    },
+    {
+        "title": "Linear Regression & OLS",
+        "category": "Statistics",
+        "equation": "beta_hat = (X^T X)^{-1} X^T y",
+        "overview": (
+            "Ordinary Least Squares (OLS) finds the linear coefficients beta that minimise "
+            "the sum of squared residuals between predictions X*beta and observations y.\n\n"
+            "Gauss-Markov theorem: under assumptions of linearity, exogeneity, and "
+            "homoscedasticity, OLS is BLUE (Best Linear Unbiased Estimator).\n\n"
+            "Key diagnostics:\n"
+            "  • R^2: fraction of variance explained\n"
+            "  • Residual plots: check for heteroscedasticity, non-linearity\n"
+            "  • VIF: detect multicollinearity\n\n"
+            "Ridge regression adds L2 penalty lambda||beta||^2 to handle collinearity."
+        ),
+    },
+    {
+        "title": "Poisson Distribution",
+        "category": "Statistics",
+        "equation": "P(X = k) = (lambda^k * e^{-lambda}) / k!",
+        "overview": (
+            "The Poisson distribution models the number of events occurring in a fixed "
+            "interval of time/space, given an average rate lambda.\n\n"
+            "Properties:\n"
+            "  • Mean = Variance = lambda\n"
+            "  • Arises as the limit of Binomial(n, p) as n→∞, p→0, np→lambda\n"
+            "  • Events must be independent and occur at constant rate\n\n"
+            "Applications: website traffic, radioactive decay, insurance claims, "
+            "queueing theory, and as the null model for rare genomic mutations."
+        ),
+    },
+]
+
+CONCEPTS_PHYSICS = [
+    {
+        "title": "Einstein's Field Equations",
+        "category": "Physics",
+        "equation": "G_{mu nu} + Lambda g_{mu nu} = (8 pi G / c^4) T_{mu nu}",
+        "overview": (
+            "Einstein's field equations (1915) relate the curvature of spacetime "
+            "(left side) to the energy-momentum content of matter (right side).\n\n"
+            "  • G_{mu nu}: Einstein tensor — encodes spacetime curvature\n"
+            "  • Lambda: cosmological constant (dark energy)\n"
+            "  • T_{mu nu}: stress-energy tensor — matter, energy, momentum\n"
+            "  • G: Newton's gravitational constant; c: speed of light\n\n"
+            "Predictions confirmed: gravitational time dilation, bending of light, "
+            "gravitational waves (LIGO 2015), black holes, and the expanding universe."
+        ),
+    },
+    {
+        "title": "Schrödinger's Equation",
+        "category": "Physics",
+        "equation": "i hbar d/dt |psi> = H |psi>",
+        "overview": (
+            "The time-dependent Schrödinger equation governs how the quantum state |psi> "
+            "of a system evolves under Hamiltonian H (total energy operator).\n\n"
+            "  • hbar = h/(2 pi): reduced Planck constant\n"
+            "  • |psi|^2: probability density of finding a particle at a location\n"
+            "  • H = -hbar^2/(2m) nabla^2 + V: kinetic + potential energy\n\n"
+            "Solutions (wave functions) describe superpositions of states.  Measurement "
+            "collapses the superposition — the central mystery of quantum mechanics.\n\n"
+            "Applications: atomic structure, semiconductors, MRI, lasers, quantum computing."
+        ),
+    },
+    {
+        "title": "Maxwell's Equations",
+        "category": "Physics",
+        "equation": "nabla·E = rho/eps0,  nabla×B - mu0 eps0 dE/dt = mu0 J",
+        "overview": (
+            "Maxwell's four equations (1865) unified electricity, magnetism, and light.\n\n"
+            "  1. Gauss's law: electric charges create diverging E fields\n"
+            "  2. Gauss's law (magnetism): no magnetic monopoles\n"
+            "  3. Faraday's law: changing B induces a curl in E\n"
+            "  4. Ampère-Maxwell law: currents and changing E create B\n\n"
+            "Maxwell predicted electromagnetic waves travelling at c = 1/sqrt(mu0 eps0) "
+            "— the speed of light — unifying optics with electromagnetism.\n\n"
+            "Every radio, WiFi, 5G, and optical device is built on these four equations."
+        ),
+    },
+    {
+        "title": "The Second Law of Thermodynamics",
+        "category": "Physics",
+        "equation": "dS >= dQ / T    (entropy of an isolated system never decreases)",
+        "overview": (
+            "The second law states that the total entropy S of an isolated system can "
+            "only increase or remain constant — never decrease spontaneously.\n\n"
+            "Interpretations:\n"
+            "  • Thermodynamic: heat flows from hot to cold; engines have < 100% efficiency\n"
+            "  • Statistical (Boltzmann): S = k_B ln(Omega) — systems evolve toward "
+            "    more probable macrostates\n"
+            "  • Information: entropy measures missing information\n\n"
+            "Implications: the arrow of time, limits of computation (Landauer's principle), "
+            "heat death of the universe, and why you can't un-scramble an egg."
+        ),
+    },
+    {
+        "title": "Special Relativity: Energy-Mass Equivalence",
+        "category": "Physics",
+        "equation": "E = gamma m c^2,   E^2 = (pc)^2 + (mc^2)^2",
+        "overview": (
+            "Einstein's special relativity (1905) showed that mass and energy are "
+            "equivalent, related by the speed of light squared.\n\n"
+            "  • For a stationary object: E = mc^2\n"
+            "  • gamma = 1/sqrt(1 - v^2/c^2): Lorentz factor\n"
+            "  • At v = 0: reduces to the famous E = mc^2\n"
+            "  • For photons (m=0): E = pc\n\n"
+            "Consequences: nuclear energy (fission/fusion convert mass to energy), "
+            "GPS corrections for relativistic effects, particle accelerators (LHC), "
+            "and the impossibility of reaching c for massive objects."
+        ),
+    },
+]
+
+CONCEPTS_HISTORY = [
+    {
+        "title": "The Printing Press (c. 1440)",
+        "category": "History",
+        "equation": "Information copies: scribal (~1/day)  →  press (~3,600/day)",
+        "overview": (
+            "Gutenberg's movable-type printing press (~1440) was arguably the most "
+            "transformative communication technology before the internet.\n\n"
+            "Impact:\n"
+            "  • Cut the cost of books by ~95% within 50 years\n"
+            "  • Enabled mass literacy across Europe\n"
+            "  • Spread Reformation ideas faster than the Church could suppress them\n"
+            "  • Standardised languages, accelerating national identities\n"
+            "  • Catalysed the Scientific Revolution by sharing results rapidly\n\n"
+            "By 1500, over 20 million books had been printed — more than all European "
+            "scribes had produced in the previous thousand years."
+        ),
+    },
+    {
+        "title": "The Industrial Revolution (1760–1840)",
+        "category": "History",
+        "equation": "UK GDP per capita: ~$1,700 (1760) → ~$3,900 (1840)  [1990 USD]",
+        "overview": (
+            "The Industrial Revolution, beginning in Britain, was the transition from "
+            "agrarian economies to machine-based manufacturing.\n\n"
+            "Key drivers:\n"
+            "  • Steam engine (Watt, 1769): unlocked mechanical power from coal\n"
+            "  • Textile mechanisation: spinning jenny, power loom\n"
+            "  • Railways: slashed transport costs, unified national markets\n"
+            "  • Factory system: concentrated labour and capital\n\n"
+            "Consequences: urbanisation, child labour, the rise of the working class, "
+            "trade unionism, and a doubling of life expectancy over the following century.\n\n"
+            "Considered the starting point of exponential human economic growth."
+        ),
+    },
+    {
+        "title": "The Black Death (1347–1353)",
+        "category": "History",
+        "equation": "Europe population: ~75M (1347) → ~50M (1353)  (~33% death rate)",
+        "overview": (
+            "The Black Death (bubonic plague caused by Yersinia pestis) killed an estimated "
+            "30-50% of Europe's population in six years — the deadliest pandemic in history.\n\n"
+            "Consequences:\n"
+            "  • Acute labour shortage → collapse of feudalism; peasant wages tripled\n"
+            "  • Church authority undermined (prayers failed) → seeds of the Reformation\n"
+            "  • Accelerated development of quarantine practices and public health\n"
+            "  • Paradoxically boosted per-capita wealth for survivors\n\n"
+            "The plague recurred cyclically until the 18th century and remains endemic "
+            "in wildlife populations today, though treatable with modern antibiotics."
+        ),
+    },
+    {
+        "title": "The Moon Landing (1969)",
+        "category": "History",
+        "equation": "Delta-v required: ~9.4 km/s (LEO) + ~3.1 km/s (lunar orbit)",
+        "overview": (
+            "On July 20, 1969, Apollo 11 landed Neil Armstrong and Buzz Aldrin on the "
+            "Moon — the culmination of a decade-long US programme employing 400,000 people.\n\n"
+            "Engineering achievements:\n"
+            "  • Saturn V: still the most powerful rocket ever flown (7.6M lbf thrust)\n"
+            "  • Apollo Guidance Computer: 4KB RAM, 72KB storage — navigated to the Moon\n"
+            "  • Lunar Module: first crewed vehicle designed to land on another world\n\n"
+            "Context: driven by Cold War competition with the USSR, which had achieved "
+            "the first satellite (Sputnik, 1957) and first human in space (Gagarin, 1961).\n\n"
+            "Total cost: ~$280 billion in today's dollars."
+        ),
+    },
+    {
+        "title": "The French Revolution (1789–1799)",
+        "category": "History",
+        "equation": "Liberté, Égalité, Fraternité",
+        "overview": (
+            "The French Revolution dismantled the Ancien Régime, executed a king, and "
+            "reshaped the political map of Europe and the world.\n\n"
+            "Key causes:\n"
+            "  • Fiscal crisis: France bankrupt after American Revolutionary War\n"
+            "  • Food shortages: bread prices tripled by 1789\n"
+            "  • Enlightenment ideas: Rousseau's social contract, Voltaire's critique of Church\n"
+            "  • Resentment of aristocratic privilege by the bourgeoisie\n\n"
+            "Legacy:\n"
+            "  • Declaration of the Rights of Man (1789): foundational human rights document\n"
+            "  • Nationalism as a political force across Europe\n"
+            "  • Napoleon Bonaparte: exported revolutionary law across a continent\n"
+            "  • Inspired revolutions of 1848 across Europe"
+        ),
+    },
+]
+
+# Ordered list of discipline panels shown on the Daily Facts tab
+DISCIPLINE_PANELS = [
+    ("AI",      CONCEPTS_AI),
+    ("Stats",   CONCEPTS_STATS),
+    ("Physics", CONCEPTS_PHYSICS),
+    ("History", CONCEPTS_HISTORY),
+]
+
+
+def get_daily_concepts_panel() -> list:
+    """Return one concept per discipline for today, cycling independently."""
+    day = date.today().timetuple().tm_yday
+    return [
+        concepts[day % len(concepts)]
+        for _, concepts in DISCIPLINE_PANELS
+    ]

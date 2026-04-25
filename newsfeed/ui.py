@@ -525,6 +525,7 @@ class NewsFeedApp:
             return
 
         current = data.get("current", {})
+        hourly = data.get("hourly", {})
         daily = data.get("daily", {})
         location_name = data.get("location_name", "")
 
@@ -576,6 +577,79 @@ class NewsFeedApp:
             row += 1
 
         row += 1  # blank line
+
+        # ── Today's Hourly Forecast ────────────────────────────────────
+        htimes  = hourly.get("time", [])
+        htemps  = hourly.get("temperature_2m", [])
+        hcodes  = hourly.get("weather_code", [])
+        hprecip = hourly.get("precipitation_probability", [])
+        hwinds  = hourly.get("wind_speed_10m", [])
+
+        now_hour   = datetime.now().hour
+        today_str  = datetime.now().strftime("%Y-%m-%d")
+        today_idxs = [
+            j for j, t in enumerate(htimes)
+            if t.startswith(today_str) and j < 24
+        ]
+
+        if today_idxs and row < end_row:
+            _safe_addstr(
+                self.stdscr, row, 0, "  TODAY'S HOURLY FORECAST",
+                curses.color_pair(_C_WEATHER_LABEL) | curses.A_BOLD,
+            )
+            row += 1
+
+        if today_idxs and row < end_row:
+            _hline(self.stdscr, row, 0, max_x, curses.color_pair(_C_SEPARATOR))
+            row += 1
+
+        if today_idxs and row < end_row:
+            col_hdr = (
+                f"  {'Time':<8}{'Condition':<22}"
+                f"{'Temp':>7}{'Rain%':>7}{'Wind':>11}"
+            )
+            _safe_addstr(
+                self.stdscr, row, 0, col_hdr[:max_x - 1],
+                curses.A_BOLD | curses.A_UNDERLINE,
+            )
+            row += 1
+
+        for j in today_idxs:
+            if row >= end_row:
+                break
+            time_str = htimes[j][11:16] if j < len(htimes) else "?"
+            h_code = hcodes[j]  if j < len(hcodes)  else 0
+            h_desc = wmo_description(h_code)
+            h_temp = (
+                f"{float(htemps[j]):.0f}\u00b0C"
+                if j < len(htemps) and htemps[j] is not None else "N/A"
+            )
+            h_prec = (
+                f"{int(hprecip[j])}%"
+                if j < len(hprecip) and hprecip[j] is not None else "N/A"
+            )
+            h_wind = (
+                f"{float(hwinds[j]):.0f}km/h"
+                if j < len(hwinds) and hwinds[j] is not None else "N/A"
+            )
+            # Highlight the current hour
+            try:
+                row_hour = int(time_str[:2])
+            except ValueError:
+                row_hour = -1
+            is_now = row_hour == now_hour
+            line = (
+                f"  {time_str:<8}{h_desc:<22}"
+                f"{h_temp:>7}{h_prec:>7}{h_wind:>11}"
+            )
+            attr = _wmo_color_pair(h_code)
+            if is_now:
+                attr = attr | curses.A_BOLD | curses.A_REVERSE
+            _safe_addstr(self.stdscr, row, 0, line[:max_x - 1], attr)
+            row += 1
+
+        if today_idxs and row < end_row:
+            row += 1  # blank line before 5-day
 
         # ── 5-Day Forecast ─────────────────────────────────────────────
         if row < end_row:

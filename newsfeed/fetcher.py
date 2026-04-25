@@ -240,6 +240,7 @@ def fetch_weather(location: dict):
         f"?latitude={lat}&longitude={lon}"
         "&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
         "weather_code,wind_speed_10m"
+        "&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m"
         "&daily=weather_code,temperature_2m_max,temperature_2m_min,"
         "precipitation_sum,wind_speed_10m_max"
         "&timezone=auto&forecast_days=6"
@@ -251,6 +252,7 @@ def fetch_weather(location: dict):
         data = {
             "location_name": location.get("name", ""),
             "current": raw.get("current", {}),
+            "hourly": raw.get("hourly", {}),
             "daily": raw.get("daily", {}),
         }
         os.makedirs(CACHE_DIR, exist_ok=True)

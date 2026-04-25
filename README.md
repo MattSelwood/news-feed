@@ -16,7 +16,11 @@ Get a daily-refreshed feed of headlines, research papers, and a rotating **Math 
   4. 🎮 **Counter-Strike 2** — HLTV, r/GlobalOffensive, r/cs2
   5. 💻 **Software Dev** — Hacker News, GitHub Blog, Lobsters
   6. 🧮 **Math / Stats / AI** — arXiv ML, arXiv Statistics, arXiv AI + **Daily Concept**
+  7. 🔬 **Science/Tech** — Nature, The Verge, Hacker News, Wired
+  8. 📚 **Daily Facts** — Rotating math / stats / AI concept panel
+  9. 🌤️ **Weather** — Current conditions + 5-day forecast via Open-Meteo
 - **Daily rotating concept** — 60+ in-depth overviews of equations and ideas (Normal distribution, Backpropagation, KL Divergence, Transformers, MCMC, Kalman Filter, …)
+- **Weather tab** — current conditions (temperature, humidity, wind) plus a 5-day forecast powered by the free [Open-Meteo API](https://open-meteo.com/) (no API key required); location configured in `config.py`; refreshes every hour
 - **Split-pane detail view** — press `Enter` to expand an article summary inline
 - **Open in browser** — press `o` to open the selected article in your default browser
 - **File-based caching** — feeds are cached for 6 hours in `~/.newsfeed/cache/` so startup is instant after the first load
@@ -58,7 +62,7 @@ python -m newsfeed
 | `↓` / `j` | Move down in article list |
 | `←` / `Shift+Tab` | Previous category |
 | `→` / `Tab` | Next category |
-| `1` – `6` | Jump directly to a category |
+| `1` – `9` | Jump directly to a category |
 | `Enter` | Toggle article detail pane |
 | `o` | Open selected article URL in browser |
 | `r` | Force refresh (clear cache + reload) |
@@ -74,8 +78,8 @@ python -m newsfeed
 newsfeed/
 ├── __init__.py      version string
 ├── __main__.py      entry point  (python -m newsfeed)
-├── config.py        feed definitions and cache settings
-├── fetcher.py       RSS fetching with file-based caching
+├── config.py        feed definitions, cache settings, and weather location
+├── fetcher.py       RSS fetching + Open-Meteo weather fetching, both with file-based caching
 ├── concepts.py      60+ daily math/stats/AI concept definitions
 └── ui.py            curses-based terminal UI
 tests/

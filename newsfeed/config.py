@@ -166,6 +166,13 @@ CATEGORIES = [
         "feeds": [],
         "concepts_tab": True,
     },
+    {
+        "name": "Weather",
+        "short": "Weather",
+        "key": "9",
+        "feeds": [],
+        "weather_tab": True,
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -180,3 +187,18 @@ CACHE_TTL_HOURS = 6
 
 # Maximum number of items to keep from each individual feed
 MAX_ITEMS_PER_FEED = 20
+
+# ---------------------------------------------------------------------------
+# Weather settings
+# ---------------------------------------------------------------------------
+
+# Default location shown in the Weather tab.
+# Change latitude / longitude (and name) to your preferred city.
+WEATHER_LOCATION = {
+    "name": "London",
+    "latitude": 51.5074,
+    "longitude": -0.1278,
+}
+
+# How long before weather data is considered stale (hours)
+WEATHER_CACHE_TTL_HOURS = 1

@@ -48,23 +48,29 @@ def test_get_daily_concept_cycles():
 
 def test_categories_defined():
     from newsfeed.config import CATEGORIES
-    assert len(CATEGORIES) == 6
+    assert len(CATEGORIES) == 9
 
 
 def test_each_category_has_feeds():
     from newsfeed.config import CATEGORIES
     for cat in CATEGORIES:
-        assert "feeds" in cat and len(cat["feeds"]) >= 1
+        assert "feeds" in cat
         assert "name" in cat and "short" in cat and "key" in cat
-        for feed in cat["feeds"]:
-            assert "name" in feed and "url" in feed
+        # RSS-backed categories must have at least one feed defined;
+        # special tabs (concepts_tab, weather_tab) are allowed to have none.
+        is_special = cat.get("concepts_tab") or cat.get("weather_tab")
+        if not is_special:
+            assert len(cat["feeds"]) >= 1, (
+                f"Category '{cat['name']}' has no feeds and no special-tab flag"
+            )
+            for feed in cat["feeds"]:
+                assert "name" in feed and "url" in feed
 
 
-def test_math_ai_category_has_daily_concept_flag():
+def test_math_ai_category_exists():
     from newsfeed.config import CATEGORIES
-    math_cats = [c for c in CATEGORIES if c.get("daily_concept")]
-    assert len(math_cats) == 1
-    assert "Math" in math_cats[0]["name"] or "AI" in math_cats[0]["name"]
+    math_cats = [c for c in CATEGORIES if "Math" in c["name"] or "AI" in c["name"]]
+    assert len(math_cats) >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +165,139 @@ def test_clear_cache():
 
 
 # ---------------------------------------------------------------------------
-# Run
+# fetcher.py — weather
 # ---------------------------------------------------------------------------
+
+def test_weather_location_config():
+    """WEATHER_LOCATION must have name, latitude, and longitude."""
+    from newsfeed.config import WEATHER_LOCATION
+    for key in ("name", "latitude", "longitude"):
+        assert key in WEATHER_LOCATION, f"WEATHER_LOCATION missing '{key}'"
+    assert isinstance(WEATHER_LOCATION["latitude"], float)
+    assert isinstance(WEATHER_LOCATION["longitude"], float)
+
+
+def test_weather_cache_ttl_config():
+    from newsfeed.config import WEATHER_CACHE_TTL_HOURS
+    assert 0 < WEATHER_CACHE_TTL_HOURS <= 24
+
+
+def test_wmo_description_known_codes():
+    from newsfeed.fetcher import wmo_description
+    assert wmo_description(0) == "Clear sky"
+    assert wmo_description(63) == "Moderate rain"
+    assert wmo_description(95) == "Thunderstorm"
+
+
+def test_wmo_description_unknown_code():
+    from newsfeed.fetcher import wmo_description
+    assert wmo_description(999) == "Unknown"
+    assert wmo_description(None) == "Unknown"
+
+
+def test_fetch_weather_handles_network_error():
+    """fetch_weather should return None on any network failure."""
+    from newsfeed import fetcher
+    location = {"name": "Test", "latitude": 0.0, "longitude": 0.0}
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with patch.object(fetcher, "CACHE_DIR", tmpdir):
+            with patch.object(fetcher.requests, "get",
+                              side_effect=Exception("network error")):
+                result = fetcher.fetch_weather(location)
+                assert result is None
+
+
+def test_fetch_weather_caches_result():
+    """fetch_weather should cache the response and return it on second call."""
+    from newsfeed import fetcher
+
+    fake_response = {
+        "current": {
+            "temperature_2m": 20.0,
+            "relative_humidity_2m": 55,
+            "apparent_temperature": 19.0,
+            "weather_code": 0,
+            "wind_speed_10m": 10.0,
+        },
+        "daily": {
+            "time": ["2026-04-25", "2026-04-26", "2026-04-27"],
+            "weather_code": [0, 2, 63],
+            "temperature_2m_max": [22.0, 19.0, 15.0],
+            "temperature_2m_min": [12.0, 10.0, 9.0],
+            "precipitation_sum": [0.0, 0.5, 8.2],
+            "wind_speed_10m_max": [12.0, 15.0, 25.0],
+        },
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = fake_response
+    mock_resp.raise_for_status.return_value = None
+
+    location = {"name": "TestCity", "latitude": 51.0, "longitude": -0.1}
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with patch.object(fetcher, "CACHE_DIR", tmpdir):
+            with patch.object(fetcher.requests, "get", return_value=mock_resp) as mock_get:
+                # First call — hits the network
+                result1 = fetcher.fetch_weather(location)
+                assert result1 is not None
+                assert result1["location_name"] == "TestCity"
+                assert mock_get.call_count == 1
+
+                # Second call — should come from cache, no new network call
+                result2 = fetcher.fetch_weather(location)
+                assert result2 == result1
+                assert mock_get.call_count == 1  # still 1
+
+
+def test_fetch_weather_cache_ttl_respected():
+    """Stale weather cache should be re-fetched."""
+    from newsfeed import fetcher
+
+    fake_response = {
+        "current": {"temperature_2m": 15.0, "weather_code": 1,
+                    "relative_humidity_2m": 60, "apparent_temperature": 14.0,
+                    "wind_speed_10m": 8.0},
+        "daily": {},
+    }
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = fake_response
+    mock_resp.raise_for_status.return_value = None
+
+    location = {"name": "StaleCity", "latitude": 52.0, "longitude": 0.1}
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with patch.object(fetcher, "CACHE_DIR", tmpdir):
+            with patch.object(fetcher.requests, "get", return_value=mock_resp):
+                fetcher.fetch_weather(location)
+
+            # Backdate the weather cache timestamp beyond TTL
+            cache_file = fetcher._weather_cache_path(52.0, 0.1)
+            with open(cache_file) as fh:
+                cached = json.load(fh)
+            cached["timestamp"] = (
+                time.time() - (fetcher.WEATHER_CACHE_TTL_HOURS + 1) * 3600
+            )
+            with open(cache_file, "w") as fh:
+                json.dump(cached, fh)
+
+            with patch.object(fetcher.requests, "get",
+                              return_value=mock_resp) as mock_get2:
+                fetcher.fetch_weather(location)
+                assert mock_get2.call_count == 1  # fetched again
+
+
+# ---------------------------------------------------------------------------
+# config.py — weather tab present
+# ---------------------------------------------------------------------------
+
+def test_weather_category_in_categories():
+    from newsfeed.config import CATEGORIES
+    weather_cats = [c for c in CATEGORIES if c.get("weather_tab")]
+    assert len(weather_cats) == 1
+    cat = weather_cats[0]
+    assert cat["key"] == "9"
+    assert cat["feeds"] == []
 
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

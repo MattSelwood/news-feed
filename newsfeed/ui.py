@@ -6,9 +6,9 @@ import webbrowser
 from datetime import datetime
 from textwrap import wrap
 
-from .config import CATEGORIES
+from .config import CATEGORIES, WEATHER_LOCATION
 from .concepts import get_daily_concept, get_daily_concepts_panel
-from .fetcher import fetch_category, clear_cache
+from .fetcher import fetch_category, clear_cache, fetch_weather, wmo_description
 
 # ---------------------------------------------------------------------------
 # Colour pair indices
@@ -25,6 +25,14 @@ _C_SEPARATOR = 9    # Separator lines
 _C_FOOTER = 10      # Footer bar
 _C_LOADING = 11     # Loading / status message
 _C_ERROR = 12       # Error text
+
+# Weather-specific colour pairs
+_C_WEATHER_SUNNY  = 13   # Clear / sunny conditions
+_C_WEATHER_CLOUDY = 14   # Cloudy / fog
+_C_WEATHER_RAIN   = 15   # Rain / drizzle / showers
+_C_WEATHER_SNOW   = 16   # Snow
+_C_WEATHER_STORM  = 17   # Thunderstorm
+_C_WEATHER_LABEL  = 18   # Weather section headers
 
 # Source-specific colour pairs start at this index.
 # We reserve _C_SRC_BASE … _C_SRC_BASE+_SRC_PALETTE_SIZE-1.
@@ -80,6 +88,25 @@ def _hline(win, y: int, x: int, width: int, attr: int = 0) -> None:
     _safe_addstr(win, y, x, "─" * width, attr)
 
 
+def _wmo_color_pair(code) -> int:
+    """Return a curses attribute for a WMO weather interpretation code."""
+    try:
+        code = int(code)
+    except (TypeError, ValueError):
+        return curses.color_pair(_C_WEATHER_CLOUDY)
+    if code <= 1:
+        return curses.color_pair(_C_WEATHER_SUNNY)
+    if code <= 3 or code in (45, 48):
+        return curses.color_pair(_C_WEATHER_CLOUDY)
+    if (51 <= code <= 67) or (80 <= code <= 82):
+        return curses.color_pair(_C_WEATHER_RAIN)
+    if (71 <= code <= 77) or (85 <= code <= 86):
+        return curses.color_pair(_C_WEATHER_SNOW)
+    if code >= 95:
+        return curses.color_pair(_C_WEATHER_STORM)
+    return curses.color_pair(_C_WEATHER_CLOUDY)
+
+
 # ---------------------------------------------------------------------------
 # Main application class
 # ---------------------------------------------------------------------------
@@ -103,6 +130,8 @@ class NewsFeedApp:
 
         # Per-category article cache: index → list[dict]
         self._articles: dict = {}
+        # Weather data cache: index → dict (from fetch_weather)
+        self._weather_data: dict = {}
         # Per-category loading flag
         self._loading: dict = {i: False for i in range(len(CATEGORIES))}
 
@@ -137,6 +166,13 @@ class NewsFeedApp:
         curses.init_pair(_C_FOOTER,       curses.COLOR_BLACK,   curses.COLOR_WHITE)
         curses.init_pair(_C_LOADING,      curses.COLOR_YELLOW,  _bg)
         curses.init_pair(_C_ERROR,        curses.COLOR_RED,     _bg)
+        # Weather colours
+        curses.init_pair(_C_WEATHER_SUNNY,  curses.COLOR_YELLOW,  _bg)
+        curses.init_pair(_C_WEATHER_CLOUDY, curses.COLOR_WHITE,   _bg)
+        curses.init_pair(_C_WEATHER_RAIN,   curses.COLOR_CYAN,    _bg)
+        curses.init_pair(_C_WEATHER_SNOW,   curses.COLOR_BLUE,    _bg)
+        curses.init_pair(_C_WEATHER_STORM,  curses.COLOR_RED,     _bg)
+        curses.init_pair(_C_WEATHER_LABEL,  curses.COLOR_GREEN,   _bg)
         # Store bg so _source_color_pair can use it at draw time
         self._bg = _bg
 
@@ -170,6 +206,20 @@ class NewsFeedApp:
                 self._articles[idx] = items
                 self._loading[idx] = False
                 self._set_status(f"Loaded {len(items)} daily facts")
+                return
+
+            # Weather tab: fetch from Open-Meteo API
+            if cat.get("weather_tab"):
+                self._set_status(f"Fetching weather for {WEATHER_LOCATION['name']}…")
+                data = fetch_weather(WEATHER_LOCATION)
+                self._weather_data[idx] = data
+                self._loading[idx] = False
+                if data is not None:
+                    self._set_status(
+                        f"Loaded weather for {WEATHER_LOCATION['name']}"
+                    )
+                else:
+                    self._set_status("Weather fetch failed — check connection")
                 return
 
             items = fetch_category(cat["feeds"], status_callback=self._set_status)
@@ -443,6 +493,159 @@ class NewsFeedApp:
         bar = shortcuts.ljust(max_x)[:max_x]
         _safe_addstr(self.stdscr, row, 0, bar, curses.color_pair(_C_FOOTER) | curses.A_BOLD)
 
+    def _draw_weather_tab(self, start_row: int, end_row: int, max_x: int) -> None:
+        """Render the weather dashboard for the Weather tab."""
+        row = start_row
+        idx = self.cat_idx
+
+        # Clear the area
+        for r in range(start_row, end_row):
+            self.stdscr.move(r, 0)
+            self.stdscr.clrtoeol()
+
+        # Loading state
+        if self._loading.get(idx):
+            _safe_addstr(
+                self.stdscr, row, 0,
+                f"  Fetching weather for {WEATHER_LOCATION['name']}…",
+                curses.color_pair(_C_LOADING) | curses.A_BOLD,
+            )
+            return
+
+        data = self._weather_data.get(idx)
+
+        # Error / no data state
+        if data is None:
+            _safe_addstr(
+                self.stdscr, row, 0,
+                "  Could not fetch weather data. "
+                "Check your connection and press r to retry.",
+                curses.color_pair(_C_ERROR),
+            )
+            return
+
+        current = data.get("current", {})
+        daily = data.get("daily", {})
+        location_name = data.get("location_name", "")
+
+        # ── Current conditions ─────────────────────────────────────────
+        code = current.get("weather_code", 0)
+        desc = wmo_description(code)
+        temp = current.get("temperature_2m")
+        feels = current.get("apparent_temperature")
+        humidity = current.get("relative_humidity_2m")
+        wind = current.get("wind_speed_10m")
+
+        def _fmt(val, unit="", decimals=1):
+            if val is None:
+                return "N/A"
+            try:
+                fmt = f"{float(val):.{decimals}f}{unit}"
+                return fmt
+            except (TypeError, ValueError):
+                return str(val)
+
+        # Location + condition headline
+        headline = f"  {location_name.upper()}  —  {desc}  —  {_fmt(temp, '°C')}"
+        if row < end_row:
+            _safe_addstr(
+                self.stdscr, row, 0,
+                headline[:max_x - 1],
+                curses.color_pair(_C_WEATHER_LABEL) | curses.A_BOLD,
+            )
+            row += 1
+
+        if row < end_row:
+            _hline(self.stdscr, row, 0, max_x, curses.color_pair(_C_SEPARATOR))
+            row += 1
+
+        label_w = 18
+        details = [
+            ("  Conditions:",    desc,                           _wmo_color_pair(code)),
+            ("  Temperature:",   f"{_fmt(temp, '°C')}   "
+                                 f"(feels like {_fmt(feels, '°C')})",
+                                 _wmo_color_pair(code)),
+            ("  Humidity:",      f"{_fmt(humidity, '%', 0)}",    curses.color_pair(_C_WEATHER_RAIN)),
+            ("  Wind speed:",    f"{_fmt(wind, ' km/h', 1)}",    curses.color_pair(_C_WEATHER_CLOUDY)),
+        ]
+        for label, value, attr in details:
+            if row >= end_row:
+                break
+            _safe_addstr(self.stdscr, row, 0, label.ljust(label_w), curses.A_BOLD)
+            _safe_addstr(self.stdscr, row, label_w, value[:max_x - label_w - 1], attr)
+            row += 1
+
+        row += 1  # blank line
+
+        # ── 5-Day Forecast ─────────────────────────────────────────────
+        if row < end_row:
+            _safe_addstr(
+                self.stdscr, row, 0, "  5-DAY FORECAST",
+                curses.color_pair(_C_WEATHER_LABEL) | curses.A_BOLD,
+            )
+            row += 1
+
+        if row < end_row:
+            _hline(self.stdscr, row, 0, max_x, curses.color_pair(_C_SEPARATOR))
+            row += 1
+
+        # Column headers
+        if row < end_row:
+            col_hdr = (
+                f"  {'Date':<13}{'Condition':<18}"
+                f"{'High':>7}{'Low':>7}{'Rain':>8}{'Wind':>11}"
+            )
+            _safe_addstr(
+                self.stdscr, row, 0, col_hdr[:max_x - 1],
+                curses.A_BOLD | curses.A_UNDERLINE,
+            )
+            row += 1
+
+        times = daily.get("time", [])
+        codes = daily.get("weather_code", [])
+        maxts = daily.get("temperature_2m_max", [])
+        mints = daily.get("temperature_2m_min", [])
+        precs = daily.get("precipitation_sum", [])
+        winds = daily.get("wind_speed_10m_max", [])
+
+        # Index 0 is today — skip it (already shown in Current Conditions)
+        for i in range(1, min(6, len(times))):
+            if row >= end_row:
+                break
+            try:
+                day_date = datetime.strptime(times[i], "%Y-%m-%d")
+                day_str = day_date.strftime("%a %b %d")
+            except (ValueError, IndexError):
+                day_str = times[i] if i < len(times) else "?"
+
+            day_code = codes[i] if i < len(codes) else 0
+            day_desc = wmo_description(day_code)
+            mx = f"{float(maxts[i]):.0f}°C" if i < len(maxts) and maxts[i] is not None else "N/A"
+            mn = f"{float(mints[i]):.0f}°C" if i < len(mints) and mints[i] is not None else "N/A"
+            pr = f"{float(precs[i]):.1f}mm" if i < len(precs) and precs[i] is not None else "N/A"
+            wn = f"{float(winds[i]):.0f}km/h" if i < len(winds) and winds[i] is not None else "N/A"
+
+            line = (
+                f"  {day_str:<13}{day_desc:<18}"
+                f"{mx:>7}{mn:>7}{pr:>8}{wn:>11}"
+            )
+            _safe_addstr(
+                self.stdscr, row, 0, line[:max_x - 1],
+                _wmo_color_pair(day_code),
+            )
+            row += 1
+
+        if row < end_row:
+            _hline(self.stdscr, row, 0, max_x, curses.color_pair(_C_SEPARATOR))
+            row += 1
+
+        if row < end_row:
+            note = "  Data: Open-Meteo API (open-meteo.com) · Cached 1 hour · Press r to refresh"
+            _safe_addstr(
+                self.stdscr, row, 0, note[:max_x - 1],
+                curses.color_pair(_C_DATE),
+            )
+
     def _draw_status(self, row: int, max_x: int) -> None:
         """Draw transient status message row."""
         if self.status:
@@ -470,7 +673,9 @@ class NewsFeedApp:
         # Status row sits just above the footer
         status_row = max_y - 2
 
-        if self.show_detail:
+        if CATEGORIES[self.cat_idx].get("weather_tab"):
+            self._draw_weather_tab(row, status_row, max_x)
+        elif self.show_detail:
             # Split: list takes top 55%, detail takes remaining space
             list_height = max(4, int((max_y - row - 2) * 0.55))
             list_end = row + list_height
@@ -511,7 +716,7 @@ class NewsFeedApp:
             self._switch_category((self.cat_idx - 1) % len(CATEGORIES))
         elif key in (ord("1"), ord("2"), ord("3"),
                      ord("4"), ord("5"), ord("6"),
-                     ord("7"), ord("8")):
+                     ord("7"), ord("8"), ord("9")):
             self._switch_category(key - ord("1"))
 
         # ── Article navigation ─────────────────────────────────────────
@@ -551,6 +756,7 @@ class NewsFeedApp:
         elif key in (ord("r"), ord("R")):
             clear_cache()
             self._articles.clear()
+            self._weather_data.clear()
             self._set_status("Cache cleared — reloading all categories…")
             for i in range(len(CATEGORIES)):
                 self._loading[i] = False

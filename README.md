@@ -102,3 +102,11 @@ requirements.txt
 ```bash
 python tests/test_newsfeed.py
 ```
+
+---
+
+## License
+
+This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License](https://creativecommons.org/licenses/by-nc/4.0/).
+
+You are free to use, share, and adapt this project for **non-commercial purposes only**. Commercial use of any kind is prohibited. See the [LICENSE](LICENSE) file for details.

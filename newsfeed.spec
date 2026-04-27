@@ -3,7 +3,7 @@
 SITE_PACKAGES = 'C:\\Users\\Matt\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.9_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python39\\site-packages'
 
 a = Analysis(
-    ['newsfeed\\__main__.py'],
+    ['run.py'],
     pathex=[SITE_PACKAGES],
     binaries=[
         (SITE_PACKAGES + '\\_curses.cp39-win_amd64.pyd', '.'),

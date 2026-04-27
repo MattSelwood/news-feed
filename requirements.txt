@@ -1,3 +1,4 @@
 feedparser>=6.0.0
 requests>=2.28.0
 windows-curses>=2.3.0; sys_platform == "win32"
+windows-curses; sys_platform == "win32" and python_implementation == "CPython"

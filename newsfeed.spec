@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-SITE_PACKAGES = 'C:\\Users\\Matt\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.9_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python39\\site-packages'
+SITE_PACKAGES = '\Local\\Packages\\PythonSoftwareFoundation.Python.3.9_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python39\\site-packages'
 
 a = Analysis(
     ['run.py'],

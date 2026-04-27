@@ -29,14 +29,22 @@ Get a daily-refreshed feed of headlines, research papers, and a rotating **Math 
 
 ---
 
-## Requirements
+## Download (Windows — no Python needed)
+
+1. Download **[newsfeed.exe](https://github.com/MattSelwood/news-feed/releases/download/v1.0.2/newsfeed.exe)** from the latest release
+2. Double-click it to run
+3. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway** (the app is unsigned, not dangerous)
+
+---
+
+## Requirements (running from source)
 
 - Python 3.8+
 - `feedparser` and `requests` (see `requirements.txt`)
 
 ---
 
-## Installation
+## Installation (from source)
 
 ```bash
 git clone https://github.com/MattSelwood/news-feed.git

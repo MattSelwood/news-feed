@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0e1a" />
+  <meta name="description" content="NewsFeed — your daily reading companion" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NewsFeed" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <title>NewsFeed</title>
+</head>
+<body>
+  <!-- App header -->
+  <header class="app-header">
+    <span class="app-title">📰 NewsFeed</span>
+    <button class="refresh-btn" id="refreshBtn" title="Refresh">⟳</button>
+  </header>
+
+  <!-- Article / detail content area -->
+  <main class="content" id="content">
+    <div class="loading-spinner" id="loadingSpinner">
+      <div class="spinner"></div>
+      <p>Loading…</p>
+    </div>
+  </main>
+
+  <!-- Bottom navigation tab bar -->
+  <nav class="tab-bar" id="tabBar">
+    <!-- Tabs injected by app.js -->
+  </nav>
+
+  <!-- Article detail panel (slides in) -->
+  <div class="detail-panel" id="detailPanel" aria-hidden="true">
+    <div class="detail-header">
+      <button class="back-btn" id="backBtn">← Back</button>
+      <span class="detail-source" id="detailSource"></span>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-footer">
+      <a class="open-link-btn" id="openLinkBtn" target="_blank" rel="noopener noreferrer">
+        Open Article ↗
+      </a>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

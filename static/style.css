@@ -1,0 +1,407 @@
+/* ============================================================
+   NewsFeed PWA — Mobile-first dark theme
+   Colour palette inspired by the existing curses UI:
+     • Background  #0a0e1a  (near-black navy)
+     • Header bar  #111827
+     • Accent cyan  #00e5ff
+     • Accent yellow #ffd600
+     • Accent green  #00e676
+     • Text        #e0e6f0
+     • Sub-text    #8899aa
+============================================================ */
+
+/* ---------- Reset / Base ---------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #0a0e1a;
+  --surface:     #111827;
+  --surface2:    #1a2235;
+  --border:      #1e2d45;
+  --cyan:        #00e5ff;
+  --yellow:      #ffd600;
+  --green:       #00e676;
+  --text:        #e0e6f0;
+  --subtext:     #8899aa;
+  --card-radius: 10px;
+  --tab-h:       58px;
+  --header-h:    50px;
+  --transition:  0.22s ease;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* ---------- App Header ---------- */
+.app-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  z-index: 100;
+}
+
+.app-title {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 0.04em;
+}
+
+.refresh-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--subtext);
+  border-radius: 6px;
+  width: 36px;
+  height: 32px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.refresh-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+.refresh-btn.spinning { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Main content area ---------- */
+.content {
+  position: fixed;
+  top: var(--header-h);
+  left: 0; right: 0;
+  bottom: var(--tab-h);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 10px 8px;
+}
+
+/* ---------- Loading spinner ---------- */
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16px;
+  color: var(--subtext);
+}
+.loading-spinner.hidden { display: none; }
+
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+/* ---------- Article card ---------- */
+.article-list { display: flex; flex-direction: column; gap: 8px; }
+
+.article-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+.article-card:active, .article-card:hover {
+  border-color: var(--cyan);
+  background: var(--surface2);
+}
+
+.card-source {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+  margin-bottom: 4px;
+}
+
+.card-title {
+  font-size: 0.93rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+.card-summary {
+  font-size: 0.8rem;
+  color: var(--subtext);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-date {
+  font-size: 0.7rem;
+  color: var(--subtext);
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* ---------- Concept card ---------- */
+.concept-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--yellow);
+  border-radius: var(--card-radius);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
+.concept-category {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--yellow);
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.concept-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.concept-equation {
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+  color: var(--green);
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.concept-overview {
+  font-size: 0.83rem;
+  color: var(--subtext);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+/* ---------- Weather card ---------- */
+.weather-location {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cyan);
+  margin-bottom: 8px;
+}
+
+.weather-current {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  border-radius: var(--card-radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.weather-temp {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.weather-desc {
+  font-size: 0.9rem;
+  color: var(--subtext);
+  margin-top: 4px;
+}
+
+.weather-meta {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--subtext);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.weather-forecast { display: flex; flex-direction: column; gap: 6px; }
+
+.forecast-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+
+.forecast-date { flex: 1; color: var(--subtext); }
+.forecast-desc { flex: 2; color: var(--text); }
+.forecast-temps { color: var(--yellow); font-weight: 600; min-width: 80px; text-align: right; }
+
+/* ---------- Empty / error state ---------- */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--subtext);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.empty-state .icon { font-size: 2.4rem; margin-bottom: 10px; }
+
+/* ---------- Bottom tab bar ---------- */
+.tab-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--tab-h);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  z-index: 100;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  flex: 0 0 auto;
+  min-width: 60px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-top: 2px solid transparent;
+  color: var(--subtext);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  transition: color var(--transition), border-color var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab-btn .tab-icon { font-size: 1.1rem; }
+
+.tab-btn.active {
+  color: var(--cyan);
+  border-top-color: var(--cyan);
+}
+
+.tab-btn:not(.active):hover { color: var(--text); }
+
+/* ---------- Detail panel ---------- */
+.detail-panel {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  transform: translateX(100%);
+  transition: transform var(--transition);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-panel.open { transform: translateX(0); }
+
+.detail-header {
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--cyan);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.detail-source {
+  flex: 1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--subtext);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 14px;
+}
+
+.detail-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.detail-summary {
+  font-size: 0.88rem;
+  color: var(--subtext);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.detail-footer {
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.open-link-btn {
+  display: block;
+  text-align: center;
+  background: var(--cyan);
+  color: var(--bg);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 13px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: opacity var(--transition);
+}
+.open-link-btn:hover { opacity: 0.88; }
+.open-link-btn.hidden { display: none; }
